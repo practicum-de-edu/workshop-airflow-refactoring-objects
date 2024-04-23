@@ -6,7 +6,7 @@ from airflow.models import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
 
-from dwh.core.titanic import calculate_sex_dm, download_titanic_dataset
+from dwh.core.domain.titanic import calculate_sex_dm, download_titanic_dataset
 
 args = {
     "owner": "airflow",
