@@ -24,7 +24,7 @@
 # The following variables are supported:
 #
 # AIRFLOW_IMAGE_NAME           - Docker image name used to run Airflow.
-#                                Default: apache/airflow:2.7.0
+#                                Default: apache/airflow:2.7.3
 # AIRFLOW_UID                  - User ID in Airflow containers
 #                                Default: 50000
 # AIRFLOW_PROJ_DIR             - Base path to which all the files will be volumed.
@@ -50,9 +50,8 @@ x-airflow-common:
   # In order to add custom dependencies or upgrade provider packages you can use your extended image.
   # Comment the image line, place your Dockerfile in the directory where you placed the docker-compose.yaml
   # and uncomment the "build" line below, Then run `docker-compose build` to build the images.
-  image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.7.0}
-  build: 
-    context: .
+  image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.7.3}
+  # build: .
   environment:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
@@ -73,16 +72,11 @@ x-airflow-common:
     # WARNING: Use _PIP_ADDITIONAL_REQUIREMENTS option ONLY for a quick checks
     # for other purpose (development, test and especially production usage) build/extend Airflow image.
     _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
-
-    AIRFLOW_CONN_POSTGRES_DB: ${AIRFLOW_CONN_POSTGRES_DB}
-    AIRFLOW_CONN_TITANIC_RAW_REPOSITORY_PG: ${AIRFLOW_CONN_TITANIC_RAW_REPOSITORY_PG}
-    AIRFLOW_CONN_TITANIC_RAW_REPOSITORY_CH: ${AIRFLOW_CONN_TITANIC_RAW_REPOSITORY_CH}
   volumes:
-    - ./dwh:/opt/airflow/dags/dwh
+    - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
     - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
     - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
     - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
-    - ./requirements.txt:/opt/airflow/requirements.txt
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     &airflow-common-depends-on
@@ -98,8 +92,6 @@ services:
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow
       POSTGRES_DB: airflow
-    ports:
-      - "5432:5432"
     volumes:
       - postgres-db-volume:/var/lib/postgresql/data
     healthcheck:
@@ -303,21 +295,6 @@ services:
       <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
-
-  clickhouse:
-    image: clickhouse/clickhouse-server
-    user: "101:101"
-    container_name: clickhouse
-    hostname: clickhouse
-    volumes:
-      - ${CLICKHOUSE_VOLUME_PATH:-./.fs/volumes/clickhouse}/etc/clickhouse-server/config.d/config.xml:/etc/clickhouse-server/config.d/config.xml
-      - ${CLICKHOUSE_VOLUME_PATH:-./.fs/volumes/clickhouse}/users.d/users.xml:/etc/clickhouse-server/users.d/users.xml
-      - ${CLICKHOUSE_VOLUME_PATH:-./.fs/volumes/clickhouse}/data:/var/lib/clickhouse clickhouse/clickhouse-server
-    ports:
-      - "127.0.0.1:8123:8123"
-      - "127.0.0.1:9000:9000"
-    restart: always
-
 
 volumes:
   postgres-db-volume:
