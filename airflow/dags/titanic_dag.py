@@ -1,17 +1,14 @@
+import csv
 import datetime as dt
 import logging
 
-import pandas as pd
+import psycopg
+import requests
 from airflow.hooks.base import BaseHook
 from airflow.models import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.operators.postgres import PostgresOperator
-from sqlalchemy import create_engine
-
-from dwh.adapters.titanic_ds_adapter import TitanicDataSetAdapter
-from dwh.core.domain.passenger_save_job import PassengerSaveJob
-from dwh.core.repository.passender_repository import PassengerRepository
 
 args = {
     "owner": "airflow",
@@ -21,17 +18,117 @@ args = {
 }
 
 
+def connection_url(
+    host: str,
+    port: str,
+    db_name: str,
+    user: str,
+    pw: str,
+    sslmode: str = "disable",
+) -> str:
+    return """
+            host={host}
+            port={port}
+            dbname={db_name}
+            user={user}
+            password={pw}
+            target_session_attrs=read-write
+            sslmode={sslmode}
+        """.format(
+        host=host,
+        port=port,
+        db_name=db_name,
+        user=user,
+        pw=pw,
+        sslmode=sslmode,
+    )
+
+
 def download_titanic_dataset():
     logging.info("Downloading titanic dataset")
 
     url = "https://web.stanford.edu/class/archive/cs/cs109/cs109.1166/stuff/titanic.csv"
-    conn = BaseHook.get_connection("POSTGRES_DB")
-    engine = create_engine(conn.get_uri())
+    connection = BaseHook.get_connection("POSTGRES_DB")
 
-    adapter = TitanicDataSetAdapter(url)
-    repository = PassengerRepository(db=engine)
-    job = PassengerSaveJob(adapter, repository)
-    job.execute()
+    with requests.Session() as s:
+        download = s.get(url)
+
+    decoded_content = download.content.decode("utf-8")
+
+    cr = csv.reader(decoded_content.splitlines(), delimiter=",")
+    my_list = list(cr)
+
+    conn_url = connection_url(
+        connection.host,
+        str(connection.port),
+        connection.schema,
+        connection.login,
+        connection.password,
+    )
+
+    print(conn_url)
+
+    with psycopg.connect(conn_url) as conn:
+        with conn.cursor() as cur:
+            cur.execute("""DROP TABLE IF EXISTS public.titanic""")
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS public.titanic (
+                    PassengerId SERIAL PRIMARY KEY,
+                    Survived INT,
+                    Pclass INT,
+                    Name varchar,
+                    Sex varchar,
+                    Age FLOAT,
+                    Siblings_Spouses_Abroad INT,
+                    Parents_Children_Abroad INT,
+                    Fare FLOAT
+                )
+                """
+            )
+
+        conn.commit()
+
+    with psycopg.connect(conn_url) as conn:
+        with conn.cursor() as cur:
+            for row in my_list[1:]:
+                cur.execute(
+                    """
+                    INSERT INTO public.titanic (
+                        Survived,
+                        Pclass,
+                        Name,
+                        Sex,
+                        Age,
+                        Siblings_Spouses_Abroad,
+                        Parents_Children_Abroad,
+                        Fare
+                    )
+                    VALUES (
+                        %(survived)s, 
+                        %(pclass)s, 
+                        %(name)s, 
+                        %(sex)s, 
+                        %(age)s, 
+                        %(siblings_spouses_abroad)s, 
+                        %(parents_children_abroad)s, 
+                        %(fare)s
+                    )
+                """,
+                    {
+                        "survived": row[0],
+                        "pclass": row[1],
+                        "name": row[2],
+                        "sex": row[3],
+                        "age": row[4],
+                        "siblings_spouses_abroad": row[5],
+                        "parents_children_abroad": row[6],
+                        "fare": row[7],
+                    },
+                )
+
+    for row in my_list:
+        print(row)
 
     logging.info("Downloaded titanic dataset")
 
@@ -39,7 +136,7 @@ def download_titanic_dataset():
 dag = DAG(
     dag_id="titanic_dag",
     schedule_interval="0/15 * * * *",
-    start_date=dt.datetime(2023, 9, 1),
+    start_date=dt.datetime(2024, 4, 24),
     catchup=False,
     tags=["demo", "stg", "cdm", "titanic"],
     is_paused_upon_creation=False,
@@ -67,12 +164,12 @@ titanic_sex_dm = PostgresOperator(
 
             CREATE TABLE public.titanic_sex_dm AS
             SELECT
-                t."Sex"                     AS "sex",
-                count(DISTINCT t."Name")    AS name_uq,
-                avg("Age")                  AS age_avg,
-                sum("Fare")                 AS fare_sum
+                t."sex"                     AS "sex",
+                count(DISTINCT t."name")    AS name_uq,
+                avg("age")                  AS age_avg,
+                sum("fare")                 AS fare_sum
             FROM public.titanic t
-            GROUP BY t."Sex"
+            GROUP BY t."sex"
           """,
 )
 
