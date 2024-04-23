@@ -1,11 +1,11 @@
 import datetime as dt
 import logging
 
-from airflow.hooks.base import BaseHook
 from airflow.models import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
 
+from dwh.airflow.dags.config import DependencyConfig
 from dwh.core.titanic import calculate_sex_dm, download_titanic_dataset
 
 args = {
@@ -16,47 +16,10 @@ args = {
 }
 
 
-def connection_url(
-    host: str,
-    port: str,
-    db_name: str,
-    user: str,
-    pw: str,
-    sslmode: str = "disable",
-) -> str:
-    return """
-            host={host}
-            port={port}
-            dbname={db_name}
-            user={user}
-            password={pw}
-            target_session_attrs=read-write
-            sslmode={sslmode}
-        """.format(
-        host=host,
-        port=port,
-        db_name=db_name,
-        user=user,
-        pw=pw,
-        sslmode=sslmode,
-    )
-
-
 def download_titanic_dataset_task():
     logging.info("Downloading titanic dataset")
 
-    url = "https://web.stanford.edu/class/archive/cs/cs109/cs109.1166/stuff/titanic.csv"
-
-    connection = BaseHook.get_connection("POSTGRES_DB")
-    conn_url = connection_url(
-        connection.host,
-        str(connection.port),
-        connection.schema,
-        connection.login,
-        connection.password,
-    )
-
-    download_titanic_dataset(url, conn_url)
+    download_titanic_dataset(DependencyConfig.titanic_source_url(), DependencyConfig.db_connection())
 
     logging.info("Downloaded titanic dataset")
 
@@ -64,16 +27,7 @@ def download_titanic_dataset_task():
 def create_titanic_sex_dm_task():
     logging.info("Calculating Sex DM")
 
-    connection = BaseHook.get_connection("POSTGRES_DB")
-    conn_url = connection_url(
-        connection.host,
-        str(connection.port),
-        connection.schema,
-        connection.login,
-        connection.password,
-    )
-
-    calculate_sex_dm(conn_url)
+    calculate_sex_dm(DependencyConfig.db_connection())
 
     logging.info("Sex DM created")
 

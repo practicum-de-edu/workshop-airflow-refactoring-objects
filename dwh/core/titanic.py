@@ -4,10 +4,12 @@ import logging
 import psycopg
 import requests
 
+from dwh.core.pg_connect import PgConnect
+
 
 def download_titanic_dataset(
     url: str,
-    conn_url: str,
+    db_connection: PgConnect,
 ):
     logging.info("Downloading titanic dataset")
 
@@ -19,7 +21,7 @@ def download_titanic_dataset(
     cr = csv.reader(decoded_content.splitlines(), delimiter=",")
     my_list = list(cr)
 
-    print(conn_url)
+    conn_url = db_connection.url()
 
     with psycopg.connect(conn_url) as conn:
         with conn.cursor() as cur:
@@ -58,13 +60,13 @@ def download_titanic_dataset(
                         Fare
                     )
                     VALUES (
-                        %(survived)s, 
-                        %(pclass)s, 
-                        %(name)s, 
-                        %(sex)s, 
-                        %(age)s, 
-                        %(siblings_spouses_abroad)s, 
-                        %(parents_children_abroad)s, 
+                        %(survived)s,
+                        %(pclass)s,
+                        %(name)s,
+                        %(sex)s,
+                        %(age)s,
+                        %(siblings_spouses_abroad)s,
+                        %(parents_children_abroad)s,
                         %(fare)s
                     )
                 """,
@@ -85,11 +87,11 @@ def download_titanic_dataset(
 
 
 def calculate_sex_dm(
-    conn_url: str,
+    db_connection: PgConnect,
 ):
     logging.info("Downloading titanic dataset")
 
-    with psycopg.connect(conn_url) as conn:
+    with psycopg.connect(db_connection.url()) as conn:
         with conn.cursor() as cur:
             cur.execute("""DROP TABLE IF EXISTS public.titanic_sex_dm;""")
             cur.execute(
