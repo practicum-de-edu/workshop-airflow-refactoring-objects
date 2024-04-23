@@ -4,86 +4,60 @@ import logging
 import psycopg
 import requests
 
+from dwh.core.domain.entities.gender import Gender
+from dwh.core.domain.entities.passenger import Passenger
 from dwh.core.pg_connect import PgConnect
+from dwh.core.repository.titanic_passenger_psycopg_repository import ITitanicPassengerRepository
 
 
-def download_titanic_dataset(
-    url: str,
-    db_connection: PgConnect,
-):
-    logging.info("Downloading titanic dataset")
+def resolve_gender(sex: str) -> Gender:
+    if sex == "male":
+        return Gender.MALE
 
-    with requests.Session() as s:
-        download = s.get(url)
+    if sex == "female":
+        return Gender.FEMALE
 
-    decoded_content = download.content.decode("utf-8")
+    raise ValueError(f"sex {sex} is not recognized.")
 
-    cr = csv.reader(decoded_content.splitlines(), delimiter=",")
-    my_list = list(cr)
 
-    conn_url = db_connection.url()
+class TitanicPassengersDownloadJob:
+    def __init__(self, url: str, passenger_repository: ITitanicPassengerRepository):
+        self.url = url
+        self.passenger_repository = passenger_repository
 
-    with psycopg.connect(conn_url) as conn:
-        with conn.cursor() as cur:
-            cur.execute("""DROP TABLE IF EXISTS public.titanic""")
-            cur.execute(
-                """
-                CREATE TABLE IF NOT EXISTS public.titanic (
-                    PassengerId SERIAL PRIMARY KEY,
-                    Survived INT,
-                    Pclass INT,
-                    Name varchar,
-                    Sex varchar,
-                    Age FLOAT,
-                    Siblings_Spouses_Abroad INT,
-                    Parents_Children_Abroad INT,
-                    Fare FLOAT
-                )
-                """
+    def run(self):
+        self.download_titanic_dataset(self.url)
+
+    def download_titanic_dataset(self, url: str):
+        logging.info("Downloading titanic dataset")
+
+        with requests.Session() as s:
+            download = s.get(url)
+
+        decoded_content = download.content.decode("utf-8")
+
+        cr = csv.reader(decoded_content.splitlines(), delimiter=",")
+        my_list = list(cr)
+
+        passengers = [
+            Passenger(
+                **{
+                    "survived": bool(row[0]),
+                    "p_class": int(row[1]),
+                    "name": row[2],
+                    "gender": resolve_gender(row[3]),
+                    "age": float(row[4]),
+                    "siblings_spouses_abroad": int(row[5]),
+                    "parents_children_abroad": int(row[6]),
+                    "fare": float(row[7]),
+                }
             )
+            for row in my_list[1:]
+        ]
 
-        conn.commit()
+        self.passenger_repository.save_many(passengers)
 
-    with psycopg.connect(conn_url) as conn:
-        with conn.cursor() as cur:
-            for row in my_list[1:]:
-                cur.execute(
-                    """
-                    INSERT INTO public.titanic (
-                        Survived,
-                        Pclass,
-                        Name,
-                        Sex,
-                        Age,
-                        Siblings_Spouses_Abroad,
-                        Parents_Children_Abroad,
-                        Fare
-                    )
-                    VALUES (
-                        %(survived)s,
-                        %(pclass)s,
-                        %(name)s,
-                        %(sex)s,
-                        %(age)s,
-                        %(siblings_spouses_abroad)s,
-                        %(parents_children_abroad)s,
-                        %(fare)s
-                    )
-                """,
-                    {
-                        "survived": row[0],
-                        "pclass": row[1],
-                        "name": row[2],
-                        "sex": row[3],
-                        "age": row[4],
-                        "siblings_spouses_abroad": row[5],
-                        "parents_children_abroad": row[6],
-                        "fare": row[7],
-                    },
-                )
-            conn.commit()
-
-    logging.info("Downloaded titanic dataset")
+        logging.info("Downloaded titanic dataset")
 
 
 def calculate_sex_dm(
