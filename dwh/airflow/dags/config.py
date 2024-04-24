@@ -1,6 +1,10 @@
 from airflow.hooks.base import BaseHook
 
 from dwh.core.pg_connect import PgConnect
+from dwh.core.repository.titanic_passenger_psycopg_repository import (
+    ITitanicPassengerRepository,
+    TitanicPassengerPsycopgRepository,
+)
 
 
 class EnvConfig:
@@ -21,6 +25,11 @@ class DependencyConfig:
             str(connection.login),
             str(connection.password),
         )
+
+    class Repository:
+        @staticmethod
+        def titanic_passenger_repository() -> ITitanicPassengerRepository:
+            return TitanicPassengerPsycopgRepository(DependencyConfig.db_connection())
 
     @staticmethod
     def titanic_source_url() -> str:

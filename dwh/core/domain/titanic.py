@@ -25,14 +25,11 @@ class TitanicPassengersDownloadJob:
         self.url = url
         self.passenger_repository = passenger_repository
 
-    def run(self):
-        self.download_titanic_dataset(self.url)
-
-    def download_titanic_dataset(self, url: str):
+    def download_titanic_dataset(self):
         logging.info("Downloading titanic dataset")
 
         with requests.Session() as s:
-            download = s.get(url)
+            download = s.get(self.url)
 
         decoded_content = download.content.decode("utf-8")
 
@@ -41,16 +38,14 @@ class TitanicPassengersDownloadJob:
 
         passengers = [
             Passenger(
-                **{
-                    "survived": bool(row[0]),
-                    "p_class": int(row[1]),
-                    "name": row[2],
-                    "gender": resolve_gender(row[3]),
-                    "age": float(row[4]),
-                    "siblings_spouses_abroad": int(row[5]),
-                    "parents_children_abroad": int(row[6]),
-                    "fare": float(row[7]),
-                }
+                survived=bool(row[0]),
+                p_class=int(row[1]),
+                name=row[2],
+                gender=resolve_gender(row[3]),
+                age=float(row[4]),
+                siblings_spouses_aboard=int(row[5]),
+                parents_children_aboard=int(row[6]),
+                fare=float(row[7]),
             )
             for row in my_list[1:]
         ]
@@ -58,6 +53,35 @@ class TitanicPassengersDownloadJob:
         self.passenger_repository.save_many(passengers)
 
         logging.info("Downloaded titanic dataset")
+
+
+def create_titanic_table(
+    db_connection: PgConnect,
+):
+    logging.info("Downloading titanic dataset")
+
+    with psycopg.connect(db_connection.url()) as conn:
+        with conn.cursor() as cur:
+            cur.execute("""DROP TABLE IF EXISTS public.titanic;""")
+            cur.execute(
+                """
+                    CREATE TABLE IF NOT EXISTS public.titanic (
+                        id SERIAL PRIMARY KEY,
+                        survived BOOLEAN,
+                        p_class INT,
+                        name varchar NOT NULL UNIQUE,
+                        sex varchar,
+                        age FLOAT,
+                        siblings_spouses_aboard INT,
+                        parents_children_aboard INT,
+                        Fare FLOAT
+                    );
+                """
+            )
+
+        conn.commit()
+
+    logging.info("Titanic Table Created")
 
 
 def calculate_sex_dm(

@@ -6,7 +6,7 @@ from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
 
 from dwh.airflow.dags.config import DependencyConfig
-from dwh.core.domain.titanic import calculate_sex_dm, download_titanic_dataset
+from dwh.core.domain.titanic import TitanicPassengersDownloadJob, calculate_sex_dm, create_titanic_table
 
 args = {
     "owner": "airflow",
@@ -16,10 +16,22 @@ args = {
 }
 
 
+def create_titanic_table_task():
+    logging.info("Creating titanic table")
+
+    create_titanic_table(DependencyConfig.db_connection())
+
+    logging.info("Titanic table created")
+
+
 def download_titanic_dataset_task():
     logging.info("Downloading titanic dataset")
 
-    download_titanic_dataset(DependencyConfig.titanic_source_url(), DependencyConfig.db_connection())
+    job = TitanicPassengersDownloadJob(
+        DependencyConfig.titanic_source_url(), DependencyConfig.Repository.titanic_passenger_repository()
+    )
+
+    job.download_titanic_dataset()
 
     logging.info("Downloaded titanic dataset")
 
@@ -46,6 +58,12 @@ dag = DAG(
 start = BashOperator(
     task_id="start",
     bash_command='echo "Here we start! "',
+    dag=dag,
+)
+
+titanic_sex_dm = PythonOperator(
+    task_id="create_titanic_table",
+    python_callable=create_titanic_table_task,
     dag=dag,
 )
 

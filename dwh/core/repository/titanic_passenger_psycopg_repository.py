@@ -24,7 +24,7 @@ class TitanicPassengerPsycopgRepository(ITitanicPassengerRepository):
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    INSERT INTO public.passengers_psycopg (
+                    INSERT INTO public.titanic (
                         age,
                         fare,
                         name,
@@ -55,13 +55,13 @@ class TitanicPassengerPsycopgRepository(ITitanicPassengerRepository):
             with conn.cursor() as cur:
                 cur.executemany(
                     """
-                    INSERT INTO public.passengers_psycopg (
+                    INSERT INTO public.titanic (
                         age,
                         fare,
                         name,
                         p_class,
                         parents_children_aboard,
-                        gender,
+                        sex,
                         siblings_spouses_aboard,
                         survived
                     )
