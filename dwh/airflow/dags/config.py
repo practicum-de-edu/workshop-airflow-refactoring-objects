@@ -1,5 +1,6 @@
 from airflow.hooks.base import BaseHook
 
+from dwh.core.connectors.titanic_api_connector import ITitanicApiConnector, TitanicConnector
 from dwh.core.pg_connect import PgConnect
 from dwh.core.repository.titanic_passenger_psycopg_repository import (
     ITitanicPassengerRepository,
@@ -30,6 +31,11 @@ class DependencyConfig:
         @staticmethod
         def titanic_passenger_repository() -> ITitanicPassengerRepository:
             return TitanicPassengerPsycopgRepository(DependencyConfig.db_connection())
+
+    class Connectors:
+        @staticmethod
+        def titanic_passenger_connector() -> ITitanicApiConnector:
+            return TitanicConnector(DependencyConfig.titanic_source_url())
 
     @staticmethod
     def titanic_source_url() -> str:

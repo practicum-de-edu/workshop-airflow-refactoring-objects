@@ -1,58 +1,24 @@
-import csv
 import logging
 
 import psycopg
-import requests
 
-from dwh.core.domain.entities.gender import Gender
-from dwh.core.domain.entities.passenger import Passenger
+from dwh.core.connectors.titanic_api_connector import ITitanicApiConnector
 from dwh.core.pg_connect import PgConnect
 from dwh.core.repository.titanic_passenger_psycopg_repository import ITitanicPassengerRepository
 
 
-def resolve_gender(sex: str) -> Gender:
-    if sex == "male":
-        return Gender.MALE
-
-    if sex == "female":
-        return Gender.FEMALE
-
-    raise ValueError(f"sex {sex} is not recognized.")
-
-
 class TitanicPassengersDownloadJob:
-    def __init__(self, url: str, passenger_repository: ITitanicPassengerRepository):
-        self.url = url
+    def __init__(self, api_connector: ITitanicApiConnector, passenger_repository: ITitanicPassengerRepository):
+        self.api_connector = api_connector
         self.passenger_repository = passenger_repository
 
     def download_titanic_dataset(self):
-        logging.info("Downloading titanic dataset")
+        logging.info("Download Titanic Job started")
 
-        with requests.Session() as s:
-            download = s.get(self.url)
-
-        decoded_content = download.content.decode("utf-8")
-
-        cr = csv.reader(decoded_content.splitlines(), delimiter=",")
-        my_list = list(cr)
-
-        passengers = [
-            Passenger(
-                survived=bool(row[0]),
-                p_class=int(row[1]),
-                name=row[2],
-                gender=resolve_gender(row[3]),
-                age=float(row[4]),
-                siblings_spouses_aboard=int(row[5]),
-                parents_children_aboard=int(row[6]),
-                fare=float(row[7]),
-            )
-            for row in my_list[1:]
-        ]
-
+        passengers = self.api_connector.download_titanic_dataset()
         self.passenger_repository.save_many(passengers)
 
-        logging.info("Downloaded titanic dataset")
+        logging.info("Download Titanic Job finished")
 
 
 def create_titanic_table(

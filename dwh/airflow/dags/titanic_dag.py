@@ -28,7 +28,7 @@ def download_titanic_dataset_task():
     logging.info("Downloading titanic dataset")
 
     job = TitanicPassengersDownloadJob(
-        DependencyConfig.titanic_source_url(), DependencyConfig.Repository.titanic_passenger_repository()
+        DependencyConfig.Connectors.titanic_passenger_connector(), DependencyConfig.Repository.titanic_passenger_repository()
     )
 
     job.download_titanic_dataset()
