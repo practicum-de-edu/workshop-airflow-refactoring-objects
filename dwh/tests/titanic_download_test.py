@@ -3,7 +3,6 @@ from unittest.mock import Mock
 import pytest
 
 from dwh.core.connectors.titanic_api_connector import ITitanicApiConnector
-from dwh.core.domain.entities.gender import Gender
 from dwh.core.domain.entities.passenger import Passenger
 from dwh.core.domain.titanic import TitanicPassengersDownloadJob, calculate_sex_dm
 from dwh.core.pg_connect import PgConnect
