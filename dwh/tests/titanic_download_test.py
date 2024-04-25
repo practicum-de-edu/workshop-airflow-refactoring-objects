@@ -15,14 +15,16 @@ def mocked_titanic_connector():
     mock = Mock(spec=ITitanicApiConnector)
     mock.download_titanic_dataset.return_value = [
         Passenger(
-            survived=True,
-            p_class=1,
-            name="John",
-            gender=Gender.MALE,
-            age=30,
-            siblings_spouses_aboard=0,
-            parents_children_aboard=1,
-            fare=12.0,
+            **{
+                "Age": 30,
+                "Fare": 12.0,
+                "Name": "John",
+                "Pclass": 1,
+                "Parents/Children Aboard": 1,
+                "Siblings/Spouses Aboard": 0,
+                "Sex": "male",
+                "Survived": True,
+            }
         )
     ]
     return mock

@@ -9,8 +9,8 @@ class Passenger(BaseModel):
     name: str = Field(alias="Name")
     p_class: int = Field(alias="Pclass")
     parents_children_aboard: int = Field(alias="Parents/Children Aboard")
-    gender: Gender = Field(alias="Sex")
     siblings_spouses_aboard: int = Field(alias="Siblings/Spouses Aboard")
+    gender: Gender = Field(alias="Sex")
     survived: bool = Field(alias="Survived")
 
     @field_validator("gender", mode="before")
