@@ -1,5 +1,5 @@
-from dwh.core.pg_connect import PgConnect
 from dwh.core.domain.titanic import calculate_sex_dm, download_titanic_dataset
+from dwh.core.pg_connect import PgConnect
 
 
 class TestTitanicDownload:
